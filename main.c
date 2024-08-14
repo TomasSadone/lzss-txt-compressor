@@ -29,6 +29,7 @@ void bb_write_bit(bit_buffer *bb, int bit);
 void bb_write_char(bit_buffer *bb, char c);
 void bb_write_tuple(bit_buffer *bb, tuple *pt);
 void bb_write_tuple(bit_buffer *bb, tuple *pt) ;
+void bb_write_remaining(bit_buffer *bb);
 
 //00000001 1 en binario
 //00000000 0 en binario
@@ -217,17 +218,10 @@ void bb_write_char(bit_buffer *bb, char c) {
 
 
 void bb_write_tuple(bit_buffer *bb, tuple *pt) {
-    int bits_remaining = 24;
+    int i = 0;
     uint8_t *bytes = (uint8_t*)pt;
-    while (bits_remaining >= 8) {
-        if (bb->bit_buffer == 8) {
-            bb->buffer[bb->head] = bb->bit_buffer;
-            bb->bit_count = 0;
-            bb->head++;
-        }
-        bb_write_char(bb, bytes[0]);
-        bits_remaining -= 8;
-        *bytes <<= 8;
+    for (int i = 0; i < 3; i++) {
+        bb_write_char(bb, bytes[i]);
     }
 };
 
