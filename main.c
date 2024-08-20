@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -17,13 +17,13 @@ typedef struct tuple {
 
 typedef struct bit_buffer {
     int head; //reference to the end of last whole byte written. (*buffer[head - 1] would access last byte)
-    unsigned char bit_count;
+    int bit_count;
     unsigned char bit_buffer;
     uint8_t* buffer;
 } bit_buffer;
 
 void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer);
-int get_lhb_size(int wi, int sbs, int lhbs);
+int get_lab_size(int wi, int sbs, int lhbs);
 bit_buffer init_bit_buffer(uint8_t* buffer);
 void bb_write_bit(bit_buffer *bb, int bit);
 void bb_write_char(bit_buffer *bb, char c);
@@ -98,6 +98,7 @@ int main(int argc,char* argv[]) {    if (argc != 2) {
         //fwrite(output_name, in_buffer); algo asi no se como se usa fwrite.
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
+    
     free(in_buffer);
     free(out_buffer);
     fclose(input_file);
@@ -111,12 +112,12 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
     uint8_t lookahead_buffer[lab_size];
     memcpy(&lookahead_buffer, sliding_window, lab_size);
-    uint8_t search_buffer[sb_size];  
+    uint8_t search_buffer[sb_size];
+    // uint8_t *search_buffer = calloc(sb_size, sizeof(u_int8_t));
     memset(search_buffer, 0, sb_size);
     int window_index = 0;
 
     bit_buffer bb = init_bit_buffer(out_buffer);
-
     while (true) {
         int match_length = 0;
         int match_offset = 0;
@@ -124,7 +125,7 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
                 int current_match_length = 1;
                 int j = 1;
-                int lhb_c_s = get_lhb_size(window_index, sb_size, lab_size);
+                int lhb_c_s = get_lab_size(window_index, sb_size, lab_size);
                 while (j < lhb_c_s) {
                     uint8_t *current_buffer;
                     if (i + j < sb_size) {
@@ -148,12 +149,13 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
         }
         //if there's no match, move window one position anyways.
         int window_shift = match_length == 0 ? 1 : match_length;
+        if(window_index + window_shift >= bf_size) break;
         //Shift search_buffer
             //shift entire search buffer window_shift times
             memmove(&search_buffer[sb_size  - window_index - window_shift], &search_buffer[sb_size  - window_index], window_index);
 
             //fill last empty bytes with first
-            memcpy(&search_buffer[sb_size - window_shift], &lookahead_buffer, window_shift);
+            memcpy(&search_buffer[sb_size - window_shift], &lookahead_buffer[0], window_shift);
 
         //si el match es > 2 pushear creo q 1 para indicar que es tuple, + tuple
         //si es <= 2, 0 + literal
@@ -165,21 +167,23 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
             bb_write_tuple(&bb, &node);
         } else {
             bb_write_bit(&bb, 0);
-            bb_write_char(&bb, lookahead_buffer[window_index]);
+            bb_write_char(&bb, lookahead_buffer[0]);
         }
         //Shift lookahead_buffer
         window_index += window_shift;    
-        if(window_index >= bf_size) break;
-        int next_lhbs =  get_lhb_size(window_index, sb_size, lab_size);
+        //o no estamos haciendo el break correctamente, o la logica de get_lab_size esta mal. pq en un momento next_lhb es -1
+        if (window_index >= lab_size) break;
+        int next_lhbs =  get_lab_size(window_index, sb_size, lab_size);
         memmove(&lookahead_buffer, &sliding_window[window_index], next_lhbs);
-        memset(&lookahead_buffer[next_lhbs], 0, next_lhbs );
+        if (next_lhbs < lab_size) {
+            memset(&lookahead_buffer[next_lhbs], 0, lab_size - next_lhbs);
+        }
     }
- 
     bb_write_remaining(&bb);
 }
 
-int get_lhb_size(int wi, int sbs, int lhbs) {
-    return (sbs - wi < lhbs) ? sbs - wi : lhbs;
+int get_lab_size(int window_index, int sb_size, int lab_size) {
+    return (sb_size - window_index < lab_size) ? sb_size - window_index : lab_size;
 }
 
 bit_buffer init_bit_buffer(uint8_t* buffer) {
@@ -198,9 +202,9 @@ void bb_write_bit(bit_buffer *bb, int bit) {
     if (bb->bit_count == 8) {
         bb->buffer[bb->head] = bb->bit_buffer;
         bb->head++;
+        bb->bit_buffer = 0;
+        bb->bit_count = 0;
     }
-    bb->bit_buffer = 0;
-    bb->bit_count = 0;
 };
 
 void bb_write_char(bit_buffer *bb, char c) {
