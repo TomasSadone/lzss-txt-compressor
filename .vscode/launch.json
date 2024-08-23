@@ -6,7 +6,24 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceRoot}/main",
-      "args": ["${workspaceRoot}/abracadabra.txt"],
+      //   "args": ["-i", "./text/normal/asd.txt", "-m", "c", "-o", "debug.txt"],
+      //   "args": ["-i", "./text/compressed/asd.txt", "-m", "d", "-o", "debug.txt"],
+      "args": [
+        "-i",
+        "./text/normal/reversed50000.txt",
+        "-m",
+        "c",
+        "-o",
+        "./text/compressed/reversed50000.txt"
+      ],
+      //   "args": [
+      //     "-o",
+      //     "./text/decompressed/reversed50000.txt",
+      //     "-m",
+      //     "d",
+      //     "-i",
+      //     "./text/compressed/reversed50000.txt"
+      //   ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],

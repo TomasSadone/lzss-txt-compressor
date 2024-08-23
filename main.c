@@ -3,65 +3,82 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h> 
+#include "./lzss.h"
 
-#define SLIDING_WINDOW_SIZE (1024 * 32) //~32.000kb
-#define LOOKAHEAD_BUFFER_SIZE 258 //bytes
-#define SEARCH_BUFFER_SIZE (SLIDING_WINDOW_SIZE - LOOKAHEAD_BUFFER_SIZE) 
-
-typedef struct tuple {
-    uint16_t offset; //representa un valor de 1 - 32,768 bytes;
-    uint8_t length; // representa un valor de 3 - 258 bytes;
-    // https://github.com/MichaelDipperstein/lzss/blob/master/lzss.c linea 162 tener en cuenta para el length de 3 - 258
-    // .. lo dice tambien en moddingwiki decoding procedure 
-} tuple;
-
-typedef struct bit_buffer {
-    int head; //reference to the end of last whole byte written. (*buffer[head - 1] would access last byte)
-    int bit_count;
-    unsigned char bit_buffer;
-    uint8_t* buffer;
-} bit_buffer;
-
-void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer);
-int get_lab_size(int wi, int sbs, int lhbs);
-bit_buffer init_bit_buffer(uint8_t* buffer);
-void bb_write_bit(bit_buffer *bb, int bit);
-void bb_write_char(bit_buffer *bb, char c);
-void bb_write_tuple(bit_buffer *bb, tuple *pt);
-void bb_write_tuple(bit_buffer *bb, tuple *pt) ;
-void bb_write_remaining(bit_buffer *bb);
+#define SLIDING_WINDOW_SIZE (1024 * 32) //32kb
 
 //00000001 1 en binario
 //00000000 0 en binario
 
-int main(int argc,char* argv[]) {    if (argc != 2) {
-        printf("Usage: bytes4sale './filepath' (in) './filepath' (out, optional) \n"); //TODO adaptar al correcto uso
-        return 1;
+void print_binary(uint8_t byte) {
+    for (int i = 7; i >= 0; i--) {
+        printf("%d", (byte >> i) & 1);
     }
+    printf(" ");
+}
 
+void print_binary_buffer(uint8_t *buffer, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        print_binary(buffer[i]);
+    }
+    printf("\n");
+}
+
+int compress(FILE *input_file, FILE *output_file);
+int decompress(FILE *input_file, FILE *output_file);
+
+int main(int argc,char* argv[]) {  
+    int opt;
+    char* input_file_name = NULL;
+    char* output_file_name = NULL;
+    char* mode = NULL;
+    while ((opt = getopt(argc, argv, "i:o:m:")) != -1) {
+        switch (opt) {
+            case 'i':
+                input_file_name = optarg;
+                break;
+            case 'o': 
+                output_file_name = optarg;
+                break;
+            case 'm':
+                mode = optarg;
+                break;
+            default:
+                printf("Usage: %s [-i input_file] [-o output_file (optional)] [-m program_mode (optional)]\n", argv[0]);
+                break;
+        }
+    }
     /*
-        bytes4sale ../archivo-a-comprimir
         Eso es el uso minimo, crea una carpeta con ese nombre y ese archivo comprimido.
         Lugo mas adelante se puede agregar cosas como: Eliminar el archivo inicial, comprimir carpetas,
         nombrar el archivo de destino.
-
-        // Leer el archivo
-            - Si no es valido, error [X]
-            - Si args no son los correctos, error. [X]
-            - Comprimir de a 32kb, primero lzss, despues huffman
     */
-   char* input_file_name = argv[1];
-   char* output_file_name = argv[2] ? argv[2] : "out.lzss.txt";
+    if (!input_file_name) {
+        printf("Usage: %s [-i input_file] [-o output_file (optional)] [-m program_mode (optional)]\n", argv[0]);
+        return 1;
+    }
+    if (!output_file_name) {
+        output_file_name = "out.lzss.txt";
+    }
+    if (!mode) {
+        mode = "c";
+    } else if (strcmp(mode, "c") != 0 && strcmp(mode, "d") != 0) {
+        printf("Mode should be either 'c' for compress, 'd' for decompress, or not specified (compress by default)\n");
+        return 1;
+    }
 
    FILE* input_file = fopen(input_file_name, "r");
    FILE* output_file = fopen(output_file_name, "w");
 
-   if (input_file == NULL) {
+    if (input_file == NULL) {
         printf("Error reading file\n");
         return 1;
-   }
-
-    //strchr se puede usar para buscar en lzss; o no.
+    }
+    if (output_file == NULL) {
+        printf("Error creating output file\n");
+        return 1;
+    }
     char* ext = strrchr(input_file_name, '.');
 
     if (strcmp(".txt", ext) != 0) {
@@ -79,158 +96,78 @@ int main(int argc,char* argv[]) {    if (argc != 2) {
     while(fread(header, size, )) etc eyc. {escribirlos donde se deba}
     -- creo que no va el while si no que solo con leerlo al buffer alcanza.
     ******/
-
-    uint8_t* in_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
-    uint8_t* out_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
- 
-    if (in_buffer == NULL) {
-        printf("Error allocating memory for in_buffer");
-        free(in_buffer);
-        fclose(input_file);
-        return 1;
+   int err = 0;
+   switch (*mode) {
+    case 'c':
+        err = compress(input_file, output_file);
+        break;
+    case 'd':
+        decompress(input_file, output_file);
+    default:
+        break;
+   }
+    if (err) {
+        printf("Error compressing/decompressing the file\n");
     }
-    int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
-
-    //TODO crear archivo zip donde despues vamos a ir escribiendo 
-    while ((bf_size > 0)) {
-        lzss_compress(in_buffer, bf_size, out_buffer);
-        //huffman_compress(in_buffer);
-        //fwrite(output_name, in_buffer); algo asi no se como se usa fwrite.
-        bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
-    }
-    
-    free(in_buffer);
-    free(out_buffer);
     fclose(input_file);
     fclose(output_file);
     return 0;
 }
 
-void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
-     
-    int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
-    int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
-    uint8_t lookahead_buffer[lab_size];
-    memcpy(&lookahead_buffer, sliding_window, lab_size);
-    uint8_t search_buffer[sb_size];
-    // uint8_t *search_buffer = calloc(sb_size, sizeof(u_int8_t));
-    memset(search_buffer, 0, sb_size);
-    int window_index = 0;
-
-    bit_buffer bb = init_bit_buffer(out_buffer);
-    while (true) {
-        int match_length = 0;
-        int match_offset = 0;
-        for (int i = sb_size - window_index; i < sb_size; i++) {
-            if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
-                int current_match_length = 1;
-                int j = 1;
-                int lhb_c_s = get_lab_size(window_index, sb_size, lab_size);
-                while (j < lhb_c_s) {
-                    uint8_t *current_buffer;
-                    if (i + j < sb_size) {
-                        current_buffer = &search_buffer[i + j];
-                    } else {
-                        current_buffer = &lookahead_buffer[i + j - sb_size];
-                    }
-
-                    if (memcmp(current_buffer, &lookahead_buffer[j], sizeof(uint8_t)) != 0) {
-                        break;
-                    }
-                    ++current_match_length;
-                    ++j;
-                }
-                if (current_match_length > match_length) {
-                    match_length = current_match_length;
-                    match_offset = sb_size - i;
-                }
-            }
-            if (match_length + i + 1 > sb_size) break; //..+1 por la prox iteracion
-        }
-        //if there's no match, move window one position anyways.
-        int window_shift = match_length == 0 ? 1 : match_length;
-        if(window_index + window_shift >= bf_size) break;
-        //Shift search_buffer
-            //shift entire search buffer window_shift times
-            memmove(&search_buffer[sb_size  - window_index - window_shift], &search_buffer[sb_size  - window_index], window_index);
-
-            //fill last empty bytes with first
-            memcpy(&search_buffer[sb_size - window_shift], &lookahead_buffer[0], window_shift);
-
-        //si el match es > 2 pushear creo q 1 para indicar que es tuple, + tuple
-        //si es <= 2, 0 + literal
-        if (match_length > 2) {
-            tuple node;
-            node.offset = 500;
-            node.length = match_length;
-            bb_write_bit(&bb, 1);
-            bb_write_tuple(&bb, &node);
-        } else {
-            bb_write_bit(&bb, 0);
-            bb_write_char(&bb, lookahead_buffer[0]);
-        }
-        //Shift lookahead_buffer
-        window_index += window_shift;    
-        //o no estamos haciendo el break correctamente, o la logica de get_lab_size esta mal. pq en un momento next_lhb es -1
-        if (window_index >= lab_size) break;
-        int next_lhbs =  get_lab_size(window_index, sb_size, lab_size);
-        memmove(&lookahead_buffer, &sliding_window[window_index], next_lhbs);
-        if (next_lhbs < lab_size) {
-            memset(&lookahead_buffer[next_lhbs], 0, lab_size - next_lhbs);
-        }
+int compress(FILE *input_file, FILE *output_file) {
+    uint8_t* in_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
+    uint8_t* out_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
+ 
+    if (in_buffer == NULL || out_buffer == NULL) {
+        printf("Error allocating memory for in_buffer");
+        free(in_buffer);
+        free(out_buffer);
+        fclose(input_file);
+        return 1;
     }
-    bb_write_remaining(&bb);
+
+    int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
+    bit_buffer bb;
+
+    while ((bf_size > 0)) {
+        int out_b_size = lzss_compress(in_buffer, bf_size, out_buffer);
+        //huffman_compress(in_buffer);
+        fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
+        // print_binary_buffer(out_buffer, out_b_size);
+        bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
+    }
+
+    //creo q temporal, mientras no exista huffman
+    // bb_write_remaining(&bb);
+    free(in_buffer);
+    free(out_buffer);    
+    return 0;
 }
 
-int get_lab_size(int window_index, int sb_size, int lab_size) {
-    return (sb_size - window_index < lab_size) ? sb_size - window_index : lab_size;
-}
-
-bit_buffer init_bit_buffer(uint8_t* buffer) {
-    bit_buffer b;
-    b.buffer = buffer;
-    b.bit_count = 0;
-    b.bit_buffer = 0;
-    b.head = 0;
-    return b;
-};
-
-void bb_write_bit(bit_buffer *bb, int bit) {
-    bb->bit_count++;
-    bb->bit_buffer <<= 1;
-    bb->bit_buffer |= bit;
-    if (bb->bit_count == 8) {
-        bb->buffer[bb->head] = bb->bit_buffer;
-        bb->head++;
-        bb->bit_buffer = 0;
-        bb->bit_count = 0;
+int decompress(FILE *input_file, FILE *output_file) {
+    uint8_t* in_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
+    uint8_t* out_buffer = calloc(SLIDING_WINDOW_SIZE, sizeof(uint8_t));
+ 
+    if (in_buffer == NULL || out_buffer == NULL) {
+        printf("Error allocating memory for in_buffer");
+        free(in_buffer);
+        free(out_buffer);
+        fclose(input_file);
+        return 1;
     }
-};
 
-void bb_write_char(bit_buffer *bb, char c) {
-    if (bb->bit_count == 0) {
-        bb->buffer[bb->head] = c;
-        bb->head++;
-        return;
+    int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
+
+    while ((bf_size > 0)) {
+        // huffman_decompress(in_buffer);
+        int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer);
+        printf("out_b_size: %i\n", out_b_size);
+        fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
+        // print_binary_buffer(in_buffer, bf_size);
+        bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
-    char tmp = c >> bb->bit_count;
-    tmp |= (bb->bit_buffer << (8 - bb->bit_count));
-    bb->bit_buffer = c;
-    bb->buffer[bb->head] = tmp;
-    bb->head++;
-};
-
-
-void bb_write_tuple(bit_buffer *bb, tuple *pt) {
-    int i = 0;
-    uint8_t *bytes = (uint8_t*)pt;
-    for (int i = 0; i < 3; i++) {
-        bb_write_char(bb, bytes[i]);
-    }
-};
-
-void bb_write_remaining(bit_buffer *bb) {
-    while (bb->bit_count > 0) {
-        bb_write_bit(bb, 0);
-    }
+    
+    free(in_buffer);
+    free(out_buffer);    
+    return 0;
 }
