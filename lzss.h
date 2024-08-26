@@ -17,7 +17,7 @@ typedef struct tuple {
     // .. lo dice tambien en moddingwiki decoding procedure 
 } tuple;
 
-int lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer);
+bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, unsigned char prev_bb_bit_count, unsigned char prev_bit_buffer);
 int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer);
 int get_lab_size(int wi, int sbs, int lhbs);
 bit_buffer init_bit_buffer(uint8_t* buffer);

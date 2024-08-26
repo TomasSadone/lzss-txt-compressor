@@ -8,9 +8,6 @@
 
 #define SLIDING_WINDOW_SIZE (1024 * 32) //32kb
 
-//00000001 1 en binario
-//00000000 0 en binario
-
 void print_binary(uint8_t byte) {
     for (int i = 7; i >= 0; i--) {
         printf("%d", (byte >> i) & 1);
@@ -51,8 +48,7 @@ int main(int argc,char* argv[]) {
     }
     /*
         Eso es el uso minimo, crea una carpeta con ese nombre y ese archivo comprimido.
-        Lugo mas adelante se puede agregar cosas como: Eliminar el archivo inicial, comprimir carpetas,
-        nombrar el archivo de destino.
+        Lugo mas adelante se puede agregar cosas como: Eliminar el archivo inicial, comprimir carpetas.
     */
     if (!input_file_name) {
         printf("Usage: %s [-i input_file] [-o output_file (optional)] [-m program_mode (optional)]\n", argv[0]);
@@ -60,6 +56,10 @@ int main(int argc,char* argv[]) {
     }
     if (!output_file_name) {
         output_file_name = "out.lzss.txt";
+    }
+    if (strcmp(input_file_name, output_file_name) == 0) {
+        printf("Output and intput files must be diffrent\n");
+        return 1;
     }
     if (!mode) {
         mode = "c";
@@ -128,17 +128,19 @@ int compress(FILE *input_file, FILE *output_file) {
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     bit_buffer bb;
+    bb.bit_count = 0;
 
     while ((bf_size > 0)) {
-        int out_b_size = lzss_compress(in_buffer, bf_size, out_buffer);
+        bb = lzss_compress(in_buffer, bf_size, out_buffer, bb.bit_count, bb.bit_buffer);
         //huffman_compress(in_buffer);
-        fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
+        fwrite(out_buffer, sizeof(uint8_t), bb.head, output_file);
         // print_binary_buffer(out_buffer, out_b_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
 
     //creo q temporal, mientras no exista huffman
-    // bb_write_remaining(&bb);
+        bb_write_remaining(&bb);
+        fwrite(&bb.buffer[bb.head - 1], sizeof(uint8_t), 1, output_file);
     free(in_buffer);
     free(out_buffer);    
     return 0;
@@ -157,14 +159,13 @@ int decompress(FILE *input_file, FILE *output_file) {
     }
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
-
     while ((bf_size > 0)) {
         // huffman_decompress(in_buffer);
         int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer);
-        printf("out_b_size: %i\n", out_b_size);
         fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
         // print_binary_buffer(in_buffer, bf_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
+
     }
     
     free(in_buffer);

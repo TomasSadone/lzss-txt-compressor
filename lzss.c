@@ -22,7 +22,7 @@ void print_binary_buffer_1(uint8_t *buffer, size_t size) {
     printf("\n");
 }
 
-int lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {     
+bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, unsigned char prev_bb_bit_count, unsigned char prev_bit_buffer) {     
     int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
     uint8_t lookahead_buffer[lab_size];
@@ -33,6 +33,11 @@ int lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
     int window_index = 0;
 
     bit_buffer bb = init_bit_buffer(out_buffer);
+    if (prev_bb_bit_count) {
+        bb.bit_count = prev_bb_bit_count;
+        bb.bit_buffer = prev_bit_buffer;
+    }
+
     while (true) {
         int match_length = 0;
         int match_offset = 0;
@@ -95,29 +100,26 @@ int lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer) {
             memset(&lookahead_buffer[next_lhbs], 0, lab_size - next_lhbs);
         }
     }
-    bb_write_remaining(&bb);
-    return bb.head;
+    return bb;
 }
 
 int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer) {
     bit_buffer bb = init_bit_buffer(in_buffer);
     int char_count = 0;
     while (bb.head < bf_size) {        
-        if(bb.head >= bf_size) {
-            break;
-        }
         if (bb_get_bit(&bb) == 0) {
-            out_buffer[char_count] = bb_get_byte(&bb);
+            out_buffer[char_count] = bb_get_byte(&bb);;
             char_count++;
         } else {
             tuple t = bb_get_tuple(&bb);
             for (int i = 0; i < t.length; i++) {
-                out_buffer[char_count + i] = out_buffer[char_count - t.offset + i];
+                out_buffer[char_count + i] = out_buffer[char_count + i - t.offset ];
             }
             memmove(&out_buffer[char_count], &out_buffer[char_count - t.offset], t.length);
             char_count += t.length;
         }
     }
+    printf("char_count: %i\n", char_count);
     return char_count;
 }
 
