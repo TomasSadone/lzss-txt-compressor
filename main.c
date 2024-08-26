@@ -128,12 +128,12 @@ int compress(FILE *input_file, FILE *output_file) {
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     bit_buffer bb;
-    bb.bit_count = 0;
+    // bb.bit_count = 0;
 
     while ((bf_size > 0)) {
-        bb = lzss_compress(in_buffer, bf_size, out_buffer, bb.bit_count, bb.bit_buffer);
+        lzss_compress(in_buffer, bf_size, out_buffer, &bb);
         //huffman_compress(in_buffer);
-        fwrite(out_buffer, sizeof(uint8_t), bb.head, output_file);
+        fwrite(bb.buffer, sizeof(uint8_t), bb.head, output_file);
         // print_binary_buffer(out_buffer, out_b_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
@@ -159,9 +159,10 @@ int decompress(FILE *input_file, FILE *output_file) {
     }
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
+    bit_buffer bb;
     while ((bf_size > 0)) {
         // huffman_decompress(in_buffer);
-        int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer);
+        int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer, &bb);
         fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
         // print_binary_buffer(in_buffer, bf_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);

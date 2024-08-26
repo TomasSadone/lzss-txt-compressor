@@ -22,7 +22,7 @@ void print_binary_buffer_1(uint8_t *buffer, size_t size) {
     printf("\n");
 }
 
-bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, unsigned char prev_bb_bit_count, unsigned char prev_bit_buffer) {     
+void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb) {     
     int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
     uint8_t lookahead_buffer[lab_size];
@@ -32,12 +32,9 @@ bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buff
     // uint8_t *search_buffer = calloc(sb_size, sizeof(uint8_t));
     int window_index = 0;
 
-    bit_buffer bb = init_bit_buffer(out_buffer);
-    if (prev_bb_bit_count) {
-        bb.bit_count = prev_bb_bit_count;
-        bb.bit_buffer = prev_bit_buffer;
-    }
-
+    // bit_buffer bb = init_bit_buffer(out_buffer);
+    init_bit_buffer(out_buffer, bb);
+    
     while (true) {
         int match_length = 0;
         int match_offset = 0;
@@ -74,11 +71,11 @@ bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buff
             tuple node;
             node.offset = match_offset;
             node.length = match_length;
-            bb_write_bit(&bb, 1);
-            bb_write_tuple(&bb, &node);
+            bb_write_bit(bb, 1);
+            bb_write_tuple(bb, &node);
         } else {
-            bb_write_bit(&bb, 0);
-            char written_char = bb_write_char(&bb, lookahead_buffer[0]);
+            bb_write_bit(bb, 0);
+            char written_char = bb_write_char(bb, lookahead_buffer[0]);
         }
         
         if(window_index + window_shift >= sb_size) {
@@ -100,18 +97,17 @@ bit_buffer lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buff
             memset(&lookahead_buffer[next_lhbs], 0, lab_size - next_lhbs);
         }
     }
-    return bb;
 }
 
-int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer) {
-    bit_buffer bb = init_bit_buffer(in_buffer);
+int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_buffer *bb) {
+    init_bit_buffer(in_buffer, bb);
     int char_count = 0;
-    while (bb.head < bf_size) {        
-        if (bb_get_bit(&bb) == 0) {
-            out_buffer[char_count] = bb_get_byte(&bb);;
+    while (bb->head < bf_size) {        
+        if (bb_get_bit(bb) == 0) {
+            out_buffer[char_count] = bb_get_byte(bb);;
             char_count++;
         } else {
-            tuple t = bb_get_tuple(&bb);
+            tuple t = bb_get_tuple(bb);
             for (int i = 0; i < t.length; i++) {
                 out_buffer[char_count + i] = out_buffer[char_count + i - t.offset ];
             }
@@ -154,13 +150,13 @@ int get_lab_size(int window_index, int sb_size, int lab_size) {
     return (sb_size - window_index < lab_size) ? sb_size - window_index : lab_size;
 }
 
-bit_buffer init_bit_buffer(uint8_t* buffer) {
-    bit_buffer b;
-    b.buffer = buffer;
-    b.bit_count = 0;
-    b.bit_buffer = 0;
-    b.head = 0;
-    return b;
+void init_bit_buffer(uint8_t* buffer, bit_buffer *bb) {
+    bb->buffer = buffer;
+    bb->head = 0;
+    if (!bb->bit_count) {
+        bb->bit_count = 0;
+        bb->bit_buffer = 0;
+    }
 };
 
 void bb_write_bit(bit_buffer *bb, int bit) {
