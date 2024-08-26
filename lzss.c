@@ -104,16 +104,26 @@ int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_bu
     int char_count = 0;
     while (bb->head < bf_size) {        
         if (bb_get_bit(bb) == 0) {
-            out_buffer[char_count] = bb_get_byte(bb);;
+            if (char_count + 1 >= SLIDING_WINDOW_SIZE) {
+                break;
+            }
+            out_buffer[char_count] = bb_get_byte(bb);
             char_count++;
         } else {
             tuple t = bb_get_tuple(bb);
+            if ((char_count += t.length) >= SLIDING_WINDOW_SIZE) {
+                bb_write_tuple(bb, &t);
+                break;
+            }
             for (int i = 0; i < t.length; i++) {
                 out_buffer[char_count + i] = out_buffer[char_count + i - t.offset ];
             }
-            memmove(&out_buffer[char_count], &out_buffer[char_count - t.offset], t.length);
+            // memmove(&out_buffer[char_count], &out_buffer[char_count - t.offset], t.length);
             char_count += t.length;
         }
+        // if(char_count > 32500) {
+        //     printf("dsa\n");
+        // }
     }
     printf("char_count: %i\n", char_count);
     return char_count;

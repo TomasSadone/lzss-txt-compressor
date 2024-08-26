@@ -70,7 +70,6 @@ int main(int argc,char* argv[]) {
 
    FILE* input_file = fopen(input_file_name, "r");
    FILE* output_file = fopen(output_file_name, "w");
-
     if (input_file == NULL) {
         printf("Error reading file\n");
         return 1;
@@ -128,13 +127,12 @@ int compress(FILE *input_file, FILE *output_file) {
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     bit_buffer bb;
-    // bb.bit_count = 0;
+    bb.bit_count = 0;
 
     while ((bf_size > 0)) {
         lzss_compress(in_buffer, bf_size, out_buffer, &bb);
         //huffman_compress(in_buffer);
         fwrite(bb.buffer, sizeof(uint8_t), bb.head, output_file);
-        // print_binary_buffer(out_buffer, out_b_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
 
@@ -160,10 +158,12 @@ int decompress(FILE *input_file, FILE *output_file) {
 
     int bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     bit_buffer bb;
+    bb.bit_count = 0;
     while ((bf_size > 0)) {
         // huffman_decompress(in_buffer);
         int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer, &bb);
         fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
+        fseek(input_file, out_b_size - bf_size, SEEK_CUR);
         // print_binary_buffer(in_buffer, bf_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
 
