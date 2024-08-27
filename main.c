@@ -163,6 +163,8 @@ int decompress(FILE *input_file, FILE *output_file) {
         // huffman_decompress(in_buffer);
         int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer, &bb);
         fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
+        //ver si es el de print o el de seek
+        // printf("%i\n", bb.head - bf_size);
         fseek(input_file, out_b_size - bf_size, SEEK_CUR);
         // print_binary_buffer(in_buffer, bf_size);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);

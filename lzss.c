@@ -23,10 +23,15 @@ void print_binary_buffer_1(uint8_t *buffer, size_t size) {
 }
 
 void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb) {     
+    for (int i = 0; i < 6; i++) {
+        printf("%c", sliding_window[i]);
+    }
+    printf("\n");
+
     int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
     uint8_t lookahead_buffer[lab_size];
-    memcpy(&lookahead_buffer, sliding_window, lab_size);
+    memcpy(&lookahead_buffer[0], &sliding_window[0], lab_size);
     uint8_t search_buffer[sb_size];
     memset(search_buffer, 0, sb_size);
     // uint8_t *search_buffer = calloc(sb_size, sizeof(uint8_t));
@@ -38,6 +43,10 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     while (true) {
         int match_length = 0;
         int match_offset = 0;
+        if (window_index == 32505) {
+            printf("dsa\n");
+        }
+
         for (int i = sb_size - window_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
                 int current_match_length = 1;
@@ -79,6 +88,7 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         
         if(window_index + window_shift >= sb_size) {
+            printf("window_index: %i\n window_shift: %i\n", window_index, window_shift);
             break;
         }
         //Shift search_buffer
@@ -102,30 +112,27 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
 int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_buffer *bb) {
     init_bit_buffer(in_buffer, bb);
     int char_count = 0;
-    while (bb->head < bf_size) {        
+    while (bb->head < bf_size) {
         if (bb_get_bit(bb) == 0) {
             if (char_count + 1 >= SLIDING_WINDOW_SIZE) {
+                bb_write_bit(bb, 0);
                 break;
             }
             out_buffer[char_count] = bb_get_byte(bb);
             char_count++;
         } else {
             tuple t = bb_get_tuple(bb);
-            if ((char_count += t.length) >= SLIDING_WINDOW_SIZE) {
+            if ((char_count + t.length) >= SLIDING_WINDOW_SIZE) {
                 bb_write_tuple(bb, &t);
+                bb_write_bit(bb, 1);
                 break;
             }
             for (int i = 0; i < t.length; i++) {
                 out_buffer[char_count + i] = out_buffer[char_count + i - t.offset ];
             }
-            // memmove(&out_buffer[char_count], &out_buffer[char_count - t.offset], t.length);
             char_count += t.length;
         }
-        // if(char_count > 32500) {
-        //     printf("dsa\n");
-        // }
-    }
-    printf("char_count: %i\n", char_count);
+    }   
     return char_count;
 }
 
