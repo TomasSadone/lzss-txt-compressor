@@ -36,6 +36,7 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     memset(search_buffer, 0, sb_size);
     // uint8_t *search_buffer = calloc(sb_size, sizeof(uint8_t));
     int window_index = 0;
+    int sb_index = 0;
 
     // bit_buffer bb = init_bit_buffer(out_buffer);
     init_bit_buffer(out_buffer, bb);
@@ -43,15 +44,18 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     while (true) {
         int match_length = 0;
         int match_offset = 0;
+        if (sb_index >= sb_size) {
+            sb_index = sb_size - 1;
+        }
         if (window_index == 32505) {
             printf("dsa\n");
         }
 
-        for (int i = sb_size - window_index; i < sb_size; i++) {
+        for (int i = sb_size - sb_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
                 int current_match_length = 1;
                 int j = 1;
-                int lhb_c_s = get_lab_size(window_index, sb_size, lab_size);
+                int lhb_c_s = get_lab_size(window_index, bf_size, lab_size);
                 while (j < lhb_c_s) {
                     uint8_t *current_buffer;
                     if (i + j < sb_size) {
@@ -87,21 +91,30 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
             char written_char = bb_write_char(bb, lookahead_buffer[0]);
         }
         
-        if(window_index + window_shift >= sb_size) {
+        if(window_index + window_shift >= bf_size) {
             printf("window_index: %i\n window_shift: %i\n", window_index, window_shift);
             break;
         }
         //Shift search_buffer
             //shift entire search buffer window_shift times
-            memmove(&search_buffer[sb_size  - window_index - window_shift], &search_buffer[sb_size  - window_index], window_index);
+            int dest_index = sb_size - window_index  - window_shift;
+            if (dest_index < 0) {
+                dest_index = 0;
+            }
+            int src_index =  dest_index;       
+            if (src_index > sb_size) {
+                src_index = sb_size - 1;
+            }
+            memmove(&search_buffer[dest_index], &search_buffer[src_index], sb_index);
 
             //fill last garbage bytes with firsts from lookahead
-            memcpy(&search_buffer[sb_size - window_shift], &lookahead_buffer[0], window_shift);
+            memcpy(&search_buffer[src_index], &lookahead_buffer[0], window_shift);
 
        
         //Shift lookahead_buffer
         window_index += window_shift;    
-        int next_lhbs =  get_lab_size(window_index, sb_size, lab_size);
+        sb_index += window_shift;
+        int next_lhbs =  get_lab_size(window_index, bf_size, lab_size);
         memmove(&lookahead_buffer, &sliding_window[window_index], next_lhbs);
         if (next_lhbs < lab_size) {
             memset(&lookahead_buffer[next_lhbs], 0, lab_size - next_lhbs);
@@ -163,8 +176,8 @@ tuple bb_get_tuple(bit_buffer *bb) {
 }
 
 
-int get_lab_size(int window_index, int sb_size, int lab_size) {
-    return (sb_size - window_index < lab_size) ? sb_size - window_index : lab_size;
+int get_lab_size(int window_index, int sw_size, int lab_size) {
+    return (sw_size - window_index < lab_size) ? sw_size - window_index : lab_size;
 }
 
 void init_bit_buffer(uint8_t* buffer, bit_buffer *bb) {
