@@ -22,12 +22,7 @@ void print_binary_buffer_1(uint8_t *buffer, size_t size) {
     printf("\n");
 }
 
-void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb) {     
-    for (int i = 0; i < 6; i++) {
-        printf("%c", sliding_window[i]);
-    }
-    printf("\n");
-
+void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb) {
     int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
     uint8_t lookahead_buffer[lab_size];
@@ -42,19 +37,13 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     init_bit_buffer(out_buffer, bb);
     
     while (true) {
+        if (window_index >= SLIDING_WINDOW_SIZE - 5) {
+            printf("\n");
+        }
         int match_length = 0;
         int match_offset = 0;
         if (sb_index >= sb_size) {
             sb_index = sb_size - 1;
-        }
-        if (window_index == 32505) {
-            printf("dsa\n");
-        }
-        if (window_index < 14) {
-            for (int i = 0; i < 15; i++ ) {
-                printf("%c", search_buffer[32535 + i]);
-            }
-            printf("\n");
         }
         for (int i = sb_size - sb_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
@@ -97,29 +86,28 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         
         if(window_index + window_shift >= bf_size) {
-            printf("window_index: %i\n window_shift: %i\n", window_index, window_shift);
+            printf("vuelta\n");
             break;
         }
         //Shift search_buffer
             //shift entire search buffer window_shift times
             int dest_index = sb_size - sb_index - window_shift;
+            int move_amount = sb_index;
             if (dest_index < 0) {
                 dest_index = 0;
+                move_amount = sb_size - window_shift;
             }
 
-            //"constrains"
-            //tiene que ser menor a sb_size
-            //tiene que ser mayor a dest_index
             int src_index = dest_index + window_shift;       
             if (src_index >= sb_size) {
                 src_index = sb_size - 1;
             }
-            memmove(&search_buffer[dest_index], &search_buffer[src_index], sb_index);
+
+            memmove(&search_buffer[dest_index], &search_buffer[src_index], move_amount);
 
             //fill last garbage bytes with firsts from lookahead
-            memcpy(&search_buffer[src_index], &lookahead_buffer[0], window_shift);
+            memcpy(&search_buffer[sb_size - window_shift], &lookahead_buffer[0], window_shift);
 
-       
         //Shift lookahead_buffer
         window_index += window_shift;
         sb_index += window_shift;
@@ -135,16 +123,20 @@ int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_bu
     init_bit_buffer(in_buffer, bb);
     int char_count = 0;
     while (bb->head < bf_size) {
+        if (char_count == 32768) {
+            printf("\n");
+        }
         if (bb_get_bit(bb) == 0) {
-            if (char_count + 1 >= SLIDING_WINDOW_SIZE) {
-                bb_write_bit(bb, 0);
+            if (char_count + 1 > SLIDING_WINDOW_SIZE) {
+                // bb_write_bit(bb, 0);
+                bb->bit_count++;   
                 break;
             }
             out_buffer[char_count] = bb_get_byte(bb);
             char_count++;
         } else {
             tuple t = bb_get_tuple(bb);
-            if ((char_count + t.length) >= SLIDING_WINDOW_SIZE) {
+            if ((char_count + t.length) > SLIDING_WINDOW_SIZE) {
                 bb_write_tuple(bb, &t);
                 bb_write_bit(bb, 1);
                 break;
@@ -174,6 +166,9 @@ unsigned char bb_get_byte(bit_buffer *bb) {
     bb->bit_buffer = bb->buffer[bb->head];
     bb->head++;
     tmp |= bb->bit_buffer >> bb->bit_count;
+    if (bb->head == 1) {
+        print_binary_buffer_1(&tmp, 1);
+    }
     return tmp;
 }
 
