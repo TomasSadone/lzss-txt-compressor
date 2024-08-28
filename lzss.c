@@ -50,7 +50,12 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         if (window_index == 32505) {
             printf("dsa\n");
         }
-
+        if (window_index < 14) {
+            for (int i = 0; i < 15; i++ ) {
+                printf("%c", search_buffer[32535 + i]);
+            }
+            printf("\n");
+        }
         for (int i = sb_size - sb_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
                 int current_match_length = 1;
@@ -97,12 +102,16 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         //Shift search_buffer
             //shift entire search buffer window_shift times
-            int dest_index = sb_size - window_index  - window_shift;
+            int dest_index = sb_size - sb_index - window_shift;
             if (dest_index < 0) {
                 dest_index = 0;
             }
-            int src_index =  dest_index;       
-            if (src_index > sb_size) {
+
+            //"constrains"
+            //tiene que ser menor a sb_size
+            //tiene que ser mayor a dest_index
+            int src_index = dest_index + window_shift;       
+            if (src_index >= sb_size) {
                 src_index = sb_size - 1;
             }
             memmove(&search_buffer[dest_index], &search_buffer[src_index], sb_index);
@@ -112,7 +121,7 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
 
        
         //Shift lookahead_buffer
-        window_index += window_shift;    
+        window_index += window_shift;
         sb_index += window_shift;
         int next_lhbs =  get_lab_size(window_index, bf_size, lab_size);
         memmove(&lookahead_buffer, &sliding_window[window_index], next_lhbs);
