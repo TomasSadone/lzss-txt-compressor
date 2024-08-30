@@ -11,10 +11,8 @@ typedef struct bit_buffer {
 } bit_buffer;
 
 typedef struct tuple {
-    uint16_t offset; //representa un valor de 1 - 32,768 bytes;
-    uint8_t length; // representa un valor de 3 - 258 bytes;
-    // https://github.com/MichaelDipperstein/lzss/blob/master/lzss.c linea 162 tener en cuenta para el length de 3 - 258
-    // .. lo dice tambien en moddingwiki decoding procedure 
+    uint16_t offset; 
+    uint8_t length;
 } tuple;
 
 void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb);

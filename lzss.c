@@ -8,20 +8,6 @@
 #define LOOKAHEAD_BUFFER_SIZE 258 //bytes
 #define SEARCH_BUFFER_SIZE (SLIDING_WINDOW_SIZE - LOOKAHEAD_BUFFER_SIZE) 
 
-void print_binary_1(uint8_t byte) {
-    for (int i = 7; i >= 0; i--) {
-        printf("%d", (byte >> i) & 1);
-    }
-    printf(" ");
-}
-
-void print_binary_buffer_1(uint8_t *buffer, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        print_binary_1(buffer[i]);
-    }
-    printf("\n");
-}
-
 void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb) {
     int lab_size = LOOKAHEAD_BUFFER_SIZE > bf_size ? bf_size : LOOKAHEAD_BUFFER_SIZE;
     int sb_size = SEARCH_BUFFER_SIZE > bf_size ? bf_size : SEARCH_BUFFER_SIZE;
@@ -29,11 +15,9 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     memcpy(&lookahead_buffer[0], &sliding_window[0], lab_size);
     uint8_t search_buffer[sb_size];
     memset(search_buffer, 0, sb_size);
-    // uint8_t *search_buffer = calloc(sb_size, sizeof(uint8_t));
     int window_index = 0;
     int sb_index = 0;
 
-    // bit_buffer bb = init_bit_buffer(out_buffer);
     init_bit_buffer(out_buffer, bb);
     
     while (true) {
@@ -44,12 +28,8 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         for (int i = sb_size - sb_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
-                // int current_match_length = 1;
                 int j = 1;
                 int lhb_c_s = get_lab_size(window_index, bf_size, lab_size);
-                if (window_index == 38) {
-                    printf("\n");
-                }
                 while (i + j - sb_size < lhb_c_s && j < 255) {
                     uint8_t *current_buffer;
                     if (i + j < sb_size) {
@@ -61,7 +41,6 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
                     if (memcmp(current_buffer, &lookahead_buffer[j], sizeof(uint8_t)) != 0) {
                         break;
                     }
-                    // ++current_match_length;
                     ++j;
                 }
                 if (j > match_length) {
@@ -69,7 +48,7 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
                     match_offset = sb_size - i;
                 }
             }
-            if (match_length + i + 1 > sb_size) break; //..+1 por la prox iteracion
+            if (match_length + i + 1 > sb_size) break;
         }
 
         //if there's no match, move window one position anyways.
@@ -124,7 +103,6 @@ int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_bu
     while (bb->head < bf_size) {
         if (bb_get_bit(bb) == 0) {
             if (char_count + 1 > SLIDING_WINDOW_SIZE) {
-                // bb_write_bit(bb, 0);
                 bb->bit_count++;   
                 break;
             }
@@ -162,9 +140,6 @@ unsigned char bb_get_byte(bit_buffer *bb) {
     bb->bit_buffer = bb->buffer[bb->head];
     bb->head++;
     tmp |= bb->bit_buffer >> bb->bit_count;
-    if (bb->head == 1) {
-        print_binary_buffer_1(&tmp, 1);
-    }
     return tmp;
 }
 

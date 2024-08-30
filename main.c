@@ -8,20 +8,6 @@
 
 #define SLIDING_WINDOW_SIZE (1024 * 32) //32kb
 
-void print_binary(uint8_t byte) {
-    for (int i = 7; i >= 0; i--) {
-        printf("%d", (byte >> i) & 1);
-    }
-    printf(" ");
-}
-
-void print_binary_buffer(uint8_t *buffer, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        print_binary(buffer[i]);
-    }
-    printf("\n");
-}
-
 int compress(FILE *input_file, FILE *output_file);
 int decompress(FILE *input_file, FILE *output_file);
 
@@ -46,10 +32,6 @@ int main(int argc,char* argv[]) {
                 break;
         }
     }
-    /*
-        Eso es el uso minimo, crea una carpeta con ese nombre y ese archivo comprimido.
-        Lugo mas adelante se puede agregar cosas como: Eliminar el archivo inicial, comprimir carpetas.
-    */
     if (!input_file_name) {
         printf("Usage: %s [-i input_file] [-o output_file (optional)] [-m program_mode (optional)]\n", argv[0]);
         return 1;
@@ -89,18 +71,7 @@ int main(int argc,char* argv[]) {
         printf("Error creating output file\n");
         return 1;
     }
-    
-    //TODO: soportar mas archivos, definiendo los headers en otro archivo y leyendolos aca haciendo un switch para definir el sizeof
-    /******
-    pseudo:
-    int size;
-    switch(ext)
-        case 'jpg': 
-        case 'jpeg': 
-            size = sizeof(jpgheaders)
-    while(fread(header, size, )) etc eyc. {escribirlos donde se deba}
-    -- creo que no va el while si no que solo con leerlo al buffer alcanza.
-    ******/
+
    int err = 0;
    switch (*mode) {
     case 'c':
@@ -137,16 +108,14 @@ int compress(FILE *input_file, FILE *output_file) {
 
     while ((bf_size > 0)) {
         lzss_compress(in_buffer, bf_size, out_buffer, &bb);
-        //huffman_compress(in_buffer);
         fwrite(bb.buffer, sizeof(uint8_t), bb.head, output_file);
         bf_size = fread(in_buffer, sizeof(u_int8_t), SLIDING_WINDOW_SIZE, input_file);
     }
 
-    //creo q temporal, mientras no exista huffman
-        if (bb.bit_count != 0) {
-            bb_write_remaining(&bb);
-            fwrite(&bb.buffer[bb.head - 1], sizeof(uint8_t), 1, output_file);
-        }
+    if (bb.bit_count != 0) {
+        bb_write_remaining(&bb);
+        fwrite(&bb.buffer[bb.head - 1], sizeof(uint8_t), 1, output_file);
+    }
     free(in_buffer);
     free(out_buffer);    
     return 0;
@@ -168,7 +137,6 @@ int decompress(FILE *input_file, FILE *output_file) {
     bit_buffer bb;
     bb.bit_count = 0;
     while ((bf_size > 0)) {
-        // huffman_decompress(in_buffer);
         int out_b_size = lzss_decompress(in_buffer, bf_size, out_buffer, &bb);
         fwrite(out_buffer, sizeof(uint8_t), out_b_size, output_file);
         fseek(input_file, bb.head - bf_size, SEEK_CUR);
