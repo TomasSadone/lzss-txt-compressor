@@ -1,4 +1,10 @@
+main.dSYM/** */
 normal/**
 decompressed/**
 compressed/**
-vscode/**
+.vscode/**
+**/**.txt
+**/**.lzss
+**/**.docx
+**/**.png
+**/**.pdf

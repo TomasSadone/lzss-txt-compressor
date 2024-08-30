@@ -37,9 +37,6 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
     init_bit_buffer(out_buffer, bb);
     
     while (true) {
-        if (window_index >= SLIDING_WINDOW_SIZE - 5) {
-            printf("\n");
-        }
         int match_length = 0;
         int match_offset = 0;
         if (sb_index >= sb_size) {
@@ -47,10 +44,13 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         for (int i = sb_size - sb_index; i < sb_size; i++) {
             if(memcmp(&search_buffer[i], &lookahead_buffer[0], sizeof(uint8_t)) == 0) {
-                int current_match_length = 1;
+                // int current_match_length = 1;
                 int j = 1;
                 int lhb_c_s = get_lab_size(window_index, bf_size, lab_size);
-                while (j < lhb_c_s) {
+                if (window_index == 38) {
+                    printf("\n");
+                }
+                while (i + j - sb_size < lhb_c_s && j < 255) {
                     uint8_t *current_buffer;
                     if (i + j < sb_size) {
                         current_buffer = &search_buffer[i + j];
@@ -61,11 +61,11 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
                     if (memcmp(current_buffer, &lookahead_buffer[j], sizeof(uint8_t)) != 0) {
                         break;
                     }
-                    ++current_match_length;
+                    // ++current_match_length;
                     ++j;
                 }
-                if (current_match_length > match_length) {
-                    match_length = current_match_length;
+                if (j > match_length) {
+                    match_length = j;
                     match_offset = sb_size - i;
                 }
             }
@@ -86,7 +86,6 @@ void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bi
         }
         
         if(window_index + window_shift >= bf_size) {
-            printf("vuelta\n");
             break;
         }
         //Shift search_buffer
@@ -123,9 +122,6 @@ int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_bu
     init_bit_buffer(in_buffer, bb);
     int char_count = 0;
     while (bb->head < bf_size) {
-        if (char_count == 32768) {
-            printf("\n");
-        }
         if (bb_get_bit(bb) == 0) {
             if (char_count + 1 > SLIDING_WINDOW_SIZE) {
                 // bb_write_bit(bb, 0);

@@ -67,6 +67,17 @@ int main(int argc,char* argv[]) {
         printf("Mode should be either 'c' for compress, 'd' for decompress, or not specified (compress by default)\n");
         return 1;
     }
+    
+    char* ext;
+    if (strcmp(mode, 'c')) {
+        ext = strrchr(input_file_name, '.');
+    } else {
+        ext = strrchr(output_file_name, '.');
+    }
+    if (strcmp(".txt", ext) != 0) {
+        printf("Only text files supported currently");
+        return 1;
+    }
 
    FILE* input_file = fopen(input_file_name, "r");
    FILE* output_file = fopen(output_file_name, "w");
@@ -78,12 +89,7 @@ int main(int argc,char* argv[]) {
         printf("Error creating output file\n");
         return 1;
     }
-    char* ext = strrchr(input_file_name, '.');
-
-    if (strcmp(".txt", ext) != 0) {
-        printf("Only text files supported currently");
-        return 1;
-    }
+    
     //TODO: soportar mas archivos, definiendo los headers en otro archivo y leyendolos aca haciendo un switch para definir el sizeof
     /******
     pseudo:
@@ -137,8 +143,10 @@ int compress(FILE *input_file, FILE *output_file) {
     }
 
     //creo q temporal, mientras no exista huffman
-        bb_write_remaining(&bb);
-        fwrite(&bb.buffer[bb.head - 1], sizeof(uint8_t), 1, output_file);
+        if (bb.bit_count != 0) {
+            bb_write_remaining(&bb);
+            fwrite(&bb.buffer[bb.head - 1], sizeof(uint8_t), 1, output_file);
+        }
     free(in_buffer);
     free(out_buffer);    
     return 0;
