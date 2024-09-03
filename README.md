@@ -1,6 +1,6 @@
 # LZSS TXT COMPRESSOR
 
-#### Video Demo: <URL HERE>
+#### Video Demo: [link](https://youtu.be/uOTh5B1r6CQ)
 
 #### Description:
 
