@@ -51,7 +51,7 @@ int main(int argc,char* argv[]) {
     }
     
     char* ext;
-    if (strcmp(mode, 'c')) {
+    if (strcmp(mode, "c") == 0) {
         ext = strrchr(input_file_name, '.');
     } else {
         ext = strrchr(output_file_name, '.');
