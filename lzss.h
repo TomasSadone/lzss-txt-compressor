@@ -2,30 +2,20 @@
 #define LZSS_H
 
 #include <stdlib.h>
+#include "bit_buffer.h"
 
-typedef struct bit_buffer {
-    int head; //reference to the end of last whole byte written. (*buffer[head - 1] would access last byte)
-    unsigned char bit_count;
-    unsigned char bit_buffer;
-    uint8_t* buffer;
-} bit_buffer;
+typedef struct match
+{
+    int length;
+    int offset;
+} match;
 
-typedef struct tuple {
-    uint16_t offset; 
-    uint8_t length;
-} tuple;
-
-void lzss_compress(uint8_t* sliding_window, int bf_size, uint8_t* out_buffer, bit_buffer *bb);
-int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_buffer *bb) ;
+void lzss_compress(uint8_t *sliding_window, int bf_size, uint8_t *out_buffer, bit_buffer *bb);
+int lzss_decompress(uint8_t *in_buffer, int bf_size, uint8_t *out_buffer, bit_buffer *bb);
 int get_lab_size(int wi, int sbs, int lhbs);
-void init_bit_buffer(uint8_t* buffer, bit_buffer *bb);
-int bb_get_bit(bit_buffer *bb);
-unsigned char bb_get_byte(bit_buffer *bb);
-tuple bb_get_tuple(bit_buffer *bb);
-void bb_write_bit(bit_buffer *bb, int bit);
-char bb_write_char(bit_buffer *bb, uint8_t c);
-void bb_write_tuple(bit_buffer *bb, tuple *pt);
-void bb_write_tuple(bit_buffer *bb, tuple *pt) ;
-void bb_write_remaining(bit_buffer *bb);
+match get_match(int sb_size, int sb_index, uint8_t *search_buffer, uint8_t *lookahead_buffer, int lhb_c_s);
+void handle_match(bit_buffer *bb, match *m, char c);
+void shift_search_buffer(int sb_size, int sb_index, int window_shift, uint8_t *search_buffer, uint8_t *lookahead_buffer);
+void shift_lookahead_buffer(int window_index, int bf_size, int lab_size, uint8_t *lookahead_buffer, uint8_t *sliding_window);
 
 #endif
